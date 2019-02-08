@@ -1,0 +1,26 @@
+sftp_custom_resources:
+  custom_policies:
+    lambda:
+      action:
+        - lambda:InvokeFunction
+      resource:
+        Fn::Sub: arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${AWS::StackName}-SftpServerCR*
+    sftp:
+      action:
+        - 'iam:PassRole'
+        - transfer:*
+      resource: '*'
+  roles:
+    SftpResource:
+      policies_inline:
+        - cloudwatch-logs
+        - sftp
+        - lambda
+  functions:
+    SftpServerCR:
+      code: cr_sftp_server.py
+      handler: cr_sftp_server.handler
+      runtime: python3.6
+      timeout: 600
+      role: SftpResource
+      package_cmd: ./package.sh

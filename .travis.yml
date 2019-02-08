@@ -1,0 +1,6 @@
+language: ruby
+rvm:
+  - 2.3
+script:
+  - gem install cfhighlander
+  - if [ "${TRAVIS_PULL_REQUEST}" != "false" ]; then cfhighlander cfcompile ; else cfhighlander cfcompile --validate; fi
