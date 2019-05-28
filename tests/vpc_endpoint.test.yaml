@@ -1,0 +1,10 @@
+test_metadata:
+  type: config
+  name: vpc_endpoint
+  description: test the vpc endpoint and security group
+
+endpoint: VPC_ENDPOINT
+output_vpc_endpoint_ips: true
+ip_whitelisting:
+  - ip: 0.0.0.0/0
+    desc: public sftp access
