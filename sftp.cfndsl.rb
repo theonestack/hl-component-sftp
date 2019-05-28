@@ -222,6 +222,22 @@ CloudFormation do
       VpcId Ref(:VpcId)
       GroupDescription FnSub("Controll sftp access to the #{server_name}-${EnvironmentName} aws transfer server vpc endpoint")
       SecurityGroupIngress ingress if ingress.any?
+      SecurityGroupEgress ([
+        {
+          CidrIp: "0.0.0.0/0",
+          Description: "outbound all for port 22",
+          FromPort: 22,
+          IpProtocol: 'TCP',
+          ToPort: 22
+        },
+        {
+          CidrIp: "0.0.0.0/0",
+          Description: "outbound all for port ephemeral ports",
+          FromPort: 1024,
+          IpProtocol: 'TCP',
+          ToPort: 65535
+        }
+      ])
       Tags sg_tags
     }
 
