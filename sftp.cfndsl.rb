@@ -349,22 +349,92 @@ CloudFormation do
       ])
     }
 
+    user_policy = { Version: "2012-10-17", Statement: [] }
+
+    user_policy[:Statement] << {
+      Sid: "AllowListingOfUserFolder",
+      Action: [ "s3:ListBucket" ],
+      Effect: "Allow",
+      Resource: [ "arn:aws:s3:::${!transfer:HomeBucket}" ],
+      Condition: {
+        StringLike: {
+          "s3:prefix" => [
+            "${!transfer:HomeFolder}/*",
+            "${!transfer:HomeFolder}"
+          ]
+        }
+      }
+    }
+
+    user_policy[:Statement] << {
+      Sid: "AWSTransferRequirements",
+      Effect: "Allow",
+      Action: [
+        "s3:ListAllMyBuckets",
+        "s3:GetBucketLocation"
+      ],
+      Resource: "*"
+    }
+
+    user_policy[:Statement] << {
+      Sid: "HomeDirObjectGetAccess",
+      Effect: "Allow",
+      Action: [
+        "s3:GetObject",
+        "s3:GetObjectVersion",
+        "s3:GetObjectACL"
+      ],
+      Resource: "arn:aws:s3:::${!transfer:HomeDirectory}*"
+    }
+
+    if user.has_key? 'access' and user['access'].include? 'put'
+      user_policy[:Statement] << {
+        Sid: "HomeDirObjectPutAccess",
+        Effect: "Allow",
+        Action: [
+          "s3:PutObject",
+          "s3:PutObjectACL"
+        ],
+        Resource: "arn:aws:s3:::${!transfer:HomeDirectory}*"
+      }
+    end
+
+    if user.has_key? 'access' and user['access'].include? 'delete'
+      user_policy[:Statement] << {
+        Sid: "HomeDirObjectDeleteAccess",
+        Effect: "Allow",
+        Action: [
+          "s3:DeleteObjectVersion",
+          "s3:DeleteObject"
+        ],
+        Resource: "arn:aws:s3:::${!transfer:HomeDirectory}*"
+      }
+    end
+
+    unless user.has_key? 'access' and user['access'].include? 'mkdir'
+      user_policy[:Statement] << {
+        Sid: "HomeDirObjectDenyMkdirAccess",
+        Effect: "Deny",
+        Action: [
+          "s3:PutObject"
+        ],
+        Resource: "arn:aws:s3:::${!transfer:HomeBucket}/*/"
+      }
+    end
+
     if identity_provider.upcase == 'API_GATEWAY'
 
       secret_string = { Role: "${Role}" }
+      secret_string[:HomeDirectory] = user.has_key?('home') ? "/#{user['bucket']}#{user['home']}" : "/#{user['bucket']}/home/#{user['name']}"
+      secret_string[:Policy] = user_policy.to_json
 
-      if user.has_key? 'home'
-        secret_string['HomeDirectory'] = user['home']
+      if user.has_key? 'keys' and user['keys'].any?
+        secret_string[:PublicKeys] = user['keys']
       end
-
-      user['keys'].each_with_index do |i, key|
-        secret_string["PublicKey#{i+1}"] = key
-      end if user.has_key? 'keys' and user['keys.any?']
-
 
       SecretsManager_Secret("#{user['name']}SftpUserSecret") {
         Name FnSub("sftp/${EnvironmentName}/#{user['name']}")
-        Description FnSub("${EnvironmentName} sftp user deatils for user #{user['name']}")
+        Description FnSub("${EnvironmentName} sftp user deatils for #{user['name']}")
         GenerateSecretString ({
           SecretStringTemplate: FnSub(secret_string.to_json, { Role: FnGetAtt("#{user['name']}SftpAccessRole", :Arn) }),
           GenerateStringKey: "Password",
@@ -380,6 +450,8 @@ CloudFormation do
         Property 'HomeDirectory', user['home'] if user.has_key? 'home'
         Property 'UserName', user['name']
         Property 'ServerId', Ref(:SftpServer)
+        Property 'Role', FnGetAtt("#{user['name']}SftpAccessRole", :Arn)
+        Property 'Policy', user_policy.to_json
 
         if user.has_key? 'keys' and user['keys'].any?
           Property 'SshPublicKeys', user['keys']

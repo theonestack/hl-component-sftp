@@ -1,9 +1,11 @@
 test_metadata:
   type: config
-  name: identity_providor
-  description: test the apigateway identity providor
+  name: service managed
+  description: plain vanila sftp transer with users
 
-identity_provider: API_GATEWAY
+server_name: managed
+identity_provider: SERVICE_MANAGED
+endpoint: PUBLIC
 
 users:
   - name: user
