@@ -200,6 +200,7 @@ CloudFormation do
         }
       })
     }
+
   end
 
   if endpoint.upcase == 'VPC_ENDPOINT'
@@ -222,22 +223,6 @@ CloudFormation do
       VpcId Ref(:VpcId)
       GroupDescription FnSub("Controll sftp access to the #{server_name}-${EnvironmentName} aws transfer server vpc endpoint")
       SecurityGroupIngress ingress if ingress.any?
-      SecurityGroupEgress ([
-        {
-          CidrIp: "0.0.0.0/0",
-          Description: "outbound all for port 22",
-          FromPort: 22,
-          IpProtocol: 'TCP',
-          ToPort: 22
-        },
-        {
-          CidrIp: "0.0.0.0/0",
-          Description: "outbound all for port ephemeral ports",
-          FromPort: 1024,
-          IpProtocol: 'TCP',
-          ToPort: 65535
-        }
-      ])
       Tags sg_tags
     }
 
@@ -260,6 +245,36 @@ CloudFormation do
       }
 
       Output(:VpcEndpointIPs) { Value(FnGetAtt(:GetVpcEndpointIPs, :VpcEndpointIPs)) }
+    end
+
+    if apigateway_endpoint.upcase == 'VPC_ENDPOINT' and identity_provider.upcase == 'API_GATEWAY'
+
+      api_sg_tags = default_tags.map(&:clone)
+      api_sg_tags << { Key: "Name", Value: FnSub("${EnvironmentName}-api-gateway-sftp-identidy-providor") }
+
+      EC2_SecurityGroup(:ApiGatewaySecurityGroup) {
+        VpcId Ref(:VpcId)
+        GroupDescription FnSub("Controll https access to the ${EnvironmentName} api gateway sftp identity providor vpc endpoint")
+        SecurityGroupIngress [{
+          SourceSecurityGroupId: Ref(:SftpSecurityGroup),
+          Description: "SFTP VPC Endpoint Security Group Id",
+          FromPort: 443,
+          IpProtocol: 'TCP',
+          ToPort: 443
+        }]
+        Tags api_sg_tags
+      }
+
+      EC2_VPCEndpoint(:ApiGatewayVpcEndpoint) {
+        VpcId Ref(:VpcId)
+        ServiceName FnSub("com.amazonaws.${AWS::Region}.apigateway")
+        VpcEndpointType "Interface"
+        PrivateDnsEnabled true
+        SubnetIds Ref(:SubnetIds)
+        SecurityGroupIds [
+          Ref(:ApiGatewaySecurityGroup)
+        ]
+      }
     end
 
   end

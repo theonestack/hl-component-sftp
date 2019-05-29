@@ -4,6 +4,7 @@ test_metadata:
   description: test the vpc endpoint and security group
 
 endpoint: VPC_ENDPOINT
+apigateway_endpoint: public
 output_vpc_endpoint_ips: true
 ip_whitelisting:
   - ip: 0.0.0.0/0

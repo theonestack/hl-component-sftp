@@ -2,10 +2,13 @@
 server_name: sftp
 
 # API_GATEWAY | SERVICE_MANAGED
-identity_provider: SERVICE_MANAGED
+identity_provider: service_managed
 
 # PUBLIC | VPC_ENDPOINT
-endpoint: PUBLIC
+endpoint: public
+
+# PUBLIC | VPC_ENDPOINT
+apigateway_endpoint: public
 
 # Custom resource to get the private ips of the private vpc endpoint
 # set to true if you want to add the vpc endpoint to a target group
