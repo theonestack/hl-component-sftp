@@ -224,6 +224,13 @@ CloudFormation do
       GroupDescription FnSub("Controll sftp access to the #{server_name}-${EnvironmentName} aws transfer server vpc endpoint")
       SecurityGroupIngress ingress if ingress.any?
       Tags sg_tags
+      Metadata({
+        cfn_nag: {
+          rules_to_suppress: [
+            { id: 'F1000', reason: 'adding rules using cfn resources' }
+          ]
+        }
+      })
     }
 
     EC2_VPCEndpoint(:SftpVpcEndpoint) {
@@ -263,6 +270,13 @@ CloudFormation do
           ToPort: 443
         }]
         Tags api_sg_tags
+        Metadata({
+          cfn_nag: {
+            rules_to_suppress: [
+              { id: 'F1000', reason: 'adding rules using cfn resources' }
+            ]
+          }
+        })
       }
 
       EC2_VPCEndpoint(:ApiGatewayVpcEndpoint) {
