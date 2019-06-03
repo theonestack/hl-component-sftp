@@ -464,12 +464,7 @@ CloudFormation do
       SecretsManager_Secret("#{user['name']}SftpUserSecret") {
         Name FnSub("sftp/${EnvironmentName}/#{user['name']}")
         Description FnSub("${EnvironmentName} sftp user deatils for #{user['name']}")
-        GenerateSecretString ({
-          SecretStringTemplate: FnSub(secret_string.to_json, { Role: FnGetAtt("#{user['name']}SftpAccessRole", :Arn) }),
-          GenerateStringKey: "Password",
-          PasswordLength: 32,
-          ExcludeCharacters: "@/\\\""
-        })
+        SecretString FnSub(secret_string.to_json, { Role: FnGetAtt("#{user['name']}SftpAccessRole", :Arn) })
       }
 
     else
