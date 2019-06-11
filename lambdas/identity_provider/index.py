@@ -36,18 +36,14 @@ def handler(event, context):
         # Password Auth Flow - Check if we have a Password Key/Value pair in our Secrets Entry
         if 'Password' in user_info_secret_dict:
             response_password = user_info_secret_dict['Password']
-    else:
-        print("Unable to authenticate user - No field match in Secret for password")
-        return response_data
-
-    # Password Auth Flow - Check for password mismatch
-    if response_password != input_password:
-        print("Unable to authenticate user - Incoming password does not match stored")
-        return response_data
+            if response_password != input_password:
+                print("Unable to authenticate user - Incoming password does not match stored")
+                return response_data
     else:
         # SSH Public Key Auth Flow - The incoming password was empty so we are trying ssh auth and need to return the public key data if we have it
-        if 'PublicKey' in user_info_secret_dict:
-            response_data['PublicKeys'] = [ user_info_secret_dict['PublicKey'] ]
+        if 'PublicKeys' in user_info_secret_dict:
+            response_data['PublicKeys'] = user_info_secret_dict['PublicKeys']
+
 
     # If we've got this far then we've either authenticated the user by password or we're using SSH public key auth and
     # we've begun constructing the data response. Check for each key value pair.
