@@ -1,6 +1,10 @@
 language: ruby
 rvm:
-  - 2.3
+  - 2.5
+install:
+  - gem install cfhighlander cfn-nag
+before_script:
+  - cfndsl -u 3.2.0
 script:
-  - gem install cfhighlander
-  - if [ "${TRAVIS_PULL_REQUEST}" != "false" ]; then cfhighlander cfcompile ; else cfhighlander cfcompile --validate; fi
+  - if [ "${TRAVIS_PULL_REQUEST}" != "false" ]; then cfhighlander cftest --no-validate; else cfhighlander cftest; fi
+  - cfn_nag_scan -i out/tests

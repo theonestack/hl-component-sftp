@@ -1,0 +1,26 @@
+test_metadata:
+  type: config
+  name: identity_providor
+  description: test the apigateway identity providor
+
+identity_provider: API_GATEWAY
+
+users:
+  - name: user
+    bucket: sftp.bucket
+    home: /home/user
+    bucket: mybucket
+    keys:
+      - ssh-rsa AAAA
+      - ssh-rsa BBBB
+    access:
+      - put
+  - name: admin
+    bucket: sftp.bucket
+    home: /home/admin
+    keys:
+      - ssh-rsa AAAA
+    access:
+      - put
+      - delete
+      - mkdir

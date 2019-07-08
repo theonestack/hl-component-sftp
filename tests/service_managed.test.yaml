@@ -1,0 +1,28 @@
+test_metadata:
+  type: config
+  name: service managed
+  description: plain vanila sftp transer with users
+
+server_name: managed
+identity_provider: SERVICE_MANAGED
+endpoint: PUBLIC
+
+users:
+  - name: user
+    bucket: sftp.bucket
+    home: /home/user
+    bucket: mybucket
+    keys:
+      - ssh-rsa AAAA
+      - ssh-rsa BBBB
+    access:
+      - put
+  - name: admin
+    bucket: sftp.bucket
+    home: /home/admin
+    keys:
+      - ssh-rsa AAAA
+    access:
+      - put
+      - delete
+      - mkdir

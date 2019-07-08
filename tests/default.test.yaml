@@ -1,0 +1,12 @@
+test_metadata:
+  type: config
+  name: default
+  description: default config
+
+users:
+  - name: user1
+    home: /home/user1
+    bucket: mybucket
+    keys:
+      - ssh-rsa AAAA
+      - ssh-rsa BBBB

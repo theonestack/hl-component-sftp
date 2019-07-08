@@ -1,26 +1,76 @@
-sftp_custom_resources:
+# used as the CNAME dns record and in tagging
+server_name: sftp
+
+# API_GATEWAY | SERVICE_MANAGED
+identity_provider: service_managed
+
+# PUBLIC | VPC_ENDPOINT
+endpoint: public
+
+# PUBLIC | VPC_ENDPOINT
+apigateway_endpoint: public
+
+# Custom resource to get the private ips of the private vpc endpoint
+# set to true if you want to add the vpc endpoint to a target group
+output_vpc_endpoint_ips: false
+
+# if endpoint is set to VPC_ENDPOINT a security group is attached.
+# use the white list to controll access to the sft server.
+# ip_whitelisting:
+#   - ip: 0.0.0.0/0
+#     desc: public sftp access
+
+# set the format of the hosted zone fo the sftp CNAME record using parameters
+dns_format: ${EnvironmentName}.${DnsDomain}
+
+apigateway_identity_providor:
+  custom_policies:
+    get-secrets:
+      action:
+        - secretsmanager:GetSecretValue
+      resource:
+        Fn::Sub: arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:sftp/${EnvironmentName}/*
+  roles:
+    SftpIdentityProvidor:
+      policies_inline:
+        - cloudwatch-logs
+        - get-secrets
+  functions:
+    SftpIdentityProvidor:
+      named: true
+      code: identity_provider/index.py
+      handler: index.handler
+      runtime: python3.7
+      timeout: 30
+      role: SftpIdentityProvidor
+      log_retention: 90
+      environment:
+        ENVIRONMENT_NAME:
+          Ref: EnvironmentName
+
+output_vpc_endpoint_ips_custom_resource:
   custom_policies:
     lambda:
       action:
         - lambda:InvokeFunction
       resource:
-        Fn::Sub: arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${AWS::StackName}-SftpServerCR*
-    sftp:
+        Fn::Sub: arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:GetVpcEndpointIPsCR
+    describe-eips:
       action:
-        - 'iam:PassRole'
-        - transfer:*
+        - ec2:DescribeNetworkInterfaces
       resource: '*'
   roles:
-    SftpResource:
+    GetVpcEndpointIPs:
       policies_inline:
         - cloudwatch-logs
-        - sftp
+        - describe-eips
         - lambda
   functions:
-    SftpServerCR:
-      code: cr_sftp_server.py
-      handler: cr_sftp_server.handler
-      runtime: python3.6
-      timeout: 600
-      role: SftpResource
-      package_cmd: ./package.sh
+    GetVpcEndpointIPsCR:
+      named: true
+      log_retention: 14
+      code: vpc_endpoint_ips/index.py
+      handler: index.handler
+      runtime: python3.7
+      timeout: 60
+      role: GetVpcEndpointIPs
