@@ -477,7 +477,7 @@ CloudFormation do
         Type 'AWS::Transfer::User'
         Property 'HomeDirectory', user['home'] if user.has_key? 'home'
         Property 'UserName', user['name']
-        Property 'ServerId', Ref(:SftpServer)
+        Property 'ServerId', FnGetAtt(:SftpServer, :ServerId)
         Property 'Role', FnGetAtt("#{user['name']}SftpAccessRole", :Arn)
         Property 'Policy', user_policy.to_json
 
