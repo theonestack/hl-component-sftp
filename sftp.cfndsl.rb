@@ -479,7 +479,7 @@ CloudFormation do
         Property 'UserName', user['name']
         Property 'ServerId', FnGetAtt(:SftpServer, :ServerId)
         Property 'Role', FnGetAtt("#{user['name']}SftpAccessRole", :Arn)
-        Property 'Policy', user_policy.to_json
+        Property 'Policy', FnSub(user_policy.to_json)
 
         if user.has_key? 'keys' and user['keys'].any?
           Property 'SshPublicKeys', user['keys']
