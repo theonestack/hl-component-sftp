@@ -3,7 +3,7 @@ CloudFormation do
   Condition('IfDns', FnNot(FnEquals(Ref('DnsDomain'), '')))
 
   default_tags = []
-  default_tags << { Key: "EnvironmentName", Value: Ref("EnvironmentName") }
+  default_tags << { Key: "Environment", Value: Ref("EnvironmentName") }
   default_tags << { Key: "EnvironmentType", Value: Ref("EnvironmentType") }
 
   tags.each do |key, value|
