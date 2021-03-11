@@ -1,6 +1,6 @@
 CloudFormation do
 
-  Condition('IfDns', FnNot(FnEquals(Ref('DnsDomain'), '')))
+  Condition(:IfDns, FnNot(FnEquals(Ref(:DnsDomain), '')))
 
   default_tags = []
   default_tags << { Key: "Environment", Value: Ref("EnvironmentName") }
@@ -203,8 +203,7 @@ CloudFormation do
 
   end
 
-  if endpoint.upcase == 'VPC_ENDPOINT'
-
+  if endpoint.upcase == 'VPC_ENDPOINT' || endpoint.upcase == 'VPC'
     ingress = []
     ip_whitelisting.each do |wl|
       ingress << {
@@ -232,7 +231,9 @@ CloudFormation do
         }
       })
     }
+  end
 
+  if endpoint.upcase == 'VPC_ENDPOINT'
     EC2_VPCEndpoint(:SftpVpcEndpoint) {
       VpcId Ref(:VpcId)
       ServiceName FnSub("com.amazonaws.${AWS::Region}.transfer.server")
@@ -290,7 +291,43 @@ CloudFormation do
         ]
       }
     end
+  
+  elsif endpoint.upcase == 'VPC' && vpc_public == true
+    Condition(:CreateEIPs, FnEquals(FnJoin("", Ref(:EIPs)), ""))
+    
+    eip_refs = []
 
+    external_parameters[:max_availability_zones].times do |az|
+      get_az = { AZ: FnSelect(az, FnGetAZs(Ref('AWS::Region'))) }
+      matches = ((az+1)..external_parameters[:max_availability_zones]).to_a
+
+      Condition("CreateEIP#{az}",
+        if matches.length == 1
+          FnAnd([
+            FnEquals(Ref(:AvailabilityZones), external_parameters[:max_availability_zones]),
+            Condition(:CreateEIPs)
+          ])
+        else
+          FnAnd([
+            FnOr(matches.map { |i| FnEquals(Ref(:AvailabilityZones), i) }),
+            Condition(:CreateEIPs)
+          ])
+        end
+      )
+
+      EC2_EIP("SftpEIP#{az}") {
+        Condition "CreateEIP#{az}"
+        Domain 'vpc'
+        Tags [{Key: 'Name', Value: FnSub("${EnvironmentName}-sftp-${AZ}", get_az) }]
+      }
+
+      eip_refs.push(FnGetAtt("SftpEIP#{az}", :AllocationId))
+    end
+
+    eip_condition = ''
+    external_parameters[:max_availability_zones].times do |az|
+      eip_condition = FnIf("CreateEIP#{az}", eip_refs[0..az], eip_condition)
+    end
   end
 
   IAM_Role(:SftpServerLoggingRole) {
@@ -317,27 +354,43 @@ CloudFormation do
   sftp_tags = default_tags.map(&:clone)
   sftp_tags << { Key: "Name", Value: FnSub("#{server_name}-${EnvironmentName}") }
 
-  Resource(:SftpServer) {
-    Type 'AWS::Transfer::Server'
+  storage_type =  external_parameters.fetch(:storage_type, nil)
 
-    Property 'EndpointType', endpoint.upcase
+  Transfer_Server(:SftpServer) {
+
+    EndpointType endpoint.upcase
+
     if endpoint.upcase == 'VPC_ENDPOINT'
-      Property 'EndpointDetails', {
+      EndpointDetails({
         VpcEndpointId: Ref(:SftpVpcEndpoint)
+      })
+    elsif endpoint.upcase == 'VPC'
+      endpoint_details = {
+        SecurityGroupIds: [
+          Ref(:SftpSecurityGroup)
+        ],
+        SubnetIds: Ref(:SubnetIds),
+        VpcId: Ref(:VpcId)
       }
+
+      if vpc_public == true
+        endpoint_details[:AddressAllocationIds] = FnIf(:CreateEIPs, eip_condition, Ref(:EIPs))
+      end
+      EndpointDetails(endpoint_details)
     end
 
-    Property 'IdentityProviderType', identity_provider.upcase
+    IdentityProviderType identity_provider.upcase
+
     if identity_provider.upcase == 'API_GATEWAY'
-      Property 'IdentityProviderDetails', {
+      IdentityProviderDetails({
         InvocationRole: FnGetAtt(:TransferIdentityProviderRole, :Arn),
         Url: FnSub("https://${CustomIdentityProviderApi}.execute-api.${AWS::Region}.amazonaws.com/${ApiStage}")
-      }
+      })
       sftp_tags << { Key: 'IdentityProvidorUrl', Value: FnSub("https://${CustomIdentityProviderApi}.execute-api.${AWS::Region}.amazonaws.com/${ApiStage}") }
     end
 
-    Property 'LoggingRole', FnGetAtt('SftpServerLoggingRole','Arn')
-    Property 'Tags', sftp_tags
+    LoggingRole FnGetAtt('SftpServerLoggingRole','Arn')
+    Tags sftp_tags
   }
 
   users.each do |user|
@@ -473,19 +526,18 @@ CloudFormation do
 
     else
 
-      Resource("#{user['name']}SftpUser") {
-        Type 'AWS::Transfer::User'
-        Property 'HomeDirectory', user.has_key?('home') ? "/#{user['bucket']}#{user['home']}" : "/#{user['bucket']}/home/#{user['name']}"
-        Property 'UserName', user['name']
-        Property 'ServerId', FnGetAtt(:SftpServer, :ServerId)
-        Property 'Role', FnGetAtt("#{user['name']}SftpAccessRole", :Arn)
-        Property 'Policy', FnSub(user_policy.to_json)
+      Transfer_User("#{user['name']}SftpUser") {
+        HomeDirectory user.has_key?('home') ? "/#{user['bucket']}#{user['home']}" : "/#{user['bucket']}/home/#{user['name']}"
+        UserName user['name']
+        ServerId FnGetAtt(:SftpServer, :ServerId)
+        Role FnGetAtt("#{user['name']}SftpAccessRole", :Arn)
+        Policy FnSub(user_policy.to_json)
 
         if user.has_key? 'keys' and user['keys'].any?
-          Property 'SshPublicKeys', user['keys']
+          SshPublicKeys user['keys']
         end
 
-        Property 'Tags', user_tags
+        Tags user_tags
       }
     end
 
