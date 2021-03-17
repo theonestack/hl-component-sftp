@@ -526,8 +526,10 @@ CloudFormation do
 
     else
 
+      home_directory = user.has_key?('home') ? "/#{user['bucket']}#{user['home']}" : "/#{user['bucket']}/home/#{user['name']}"
+
       Transfer_User("#{user['name']}SftpUser") {
-        HomeDirectory user.has_key?('home') ? "/#{user['bucket']}#{user['home']}" : "/#{user['bucket']}/home/#{user['name']}"
+        HomeDirectory FnSub(home_directory)
         UserName user['name']
         ServerId FnGetAtt(:SftpServer, :ServerId)
         Role FnGetAtt("#{user['name']}SftpAccessRole", :Arn)
