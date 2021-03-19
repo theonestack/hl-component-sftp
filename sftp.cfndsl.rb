@@ -206,13 +206,22 @@ CloudFormation do
   if endpoint.upcase == 'VPC_ENDPOINT' || endpoint.upcase == 'VPC'
     ingress = []
     ip_whitelisting.each do |wl|
-      ingress << {
-        CidrIp: FnSub(wl['ip']),
+       rule = {
         Description: FnSub(wl['desc']),
         FromPort: 22,
         IpProtocol: 'TCP',
         ToPort: 22
       }
+
+      if wl.has_key?('prefix')
+        rule[:SourcePrefixListId] = wl['prefix']
+      elsif wl.has_key?('group')
+        rule[:SourceSecurityGroupId] = wl['group']
+      else
+        rule[:CidrIp] = FnSub(wl['ip'])
+      end
+
+      ingress << rule
     end if ip_whitelisting.any?
 
     sg_tags = default_tags.map(&:clone)
