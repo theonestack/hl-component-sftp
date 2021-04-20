@@ -86,16 +86,38 @@ output_vpc_endpoint_ips_custom_resource:
 
 dynamic_users_create_and_cleanup:
   custom_policies:
-    custom-policy:
+    createuser-iam:
       action:
-        - some:action
+        - iam:GetRole
+        - iam:CreateRole
+        - iam:AttachRolePolicy
+        - iam:PutRolePolicy
+        - iam:CreatePolicy*
       resource:
-        Fn::Sub: arn:aws:service:${AWS::Region}:${AWS::AccountId}:...
+        - Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/*
+        - Fn::Sub: arn:aws:iam::${AWS::AccountId}:policy/*
+    createuser-secretsmanager:
+      action:
+        - secretsmanager:GetSecretValue
+        - secretsmanager:DescribeSecret
+        - secretsmanager:RestoreSecret
+        - secretsmanager:PutSecretValue
+        - secretsmanager:CreateSecret
+      resource:
+        Fn::Sub: arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:*"
+    createuser-getrandompassword:
+      action: secretsmanager:GetRandomPassword
+    createuser-snspublish:
+      action: sns:Publish
+      resource:
+        Ref: DynamicSftpUserCreatedTopic
   roles:
     CreateDynamicSftpUser:
       policies_inline:
         - cloudwatch-logs
-        - custom-policy
+        - createuser-iam
+        - createuser-secretsmanager
+        - createuser-getrandompassword
     CleanupDynamicSftpUsers:
       policies_inline:
         - cloudwatch-logs

@@ -10,6 +10,7 @@ from datetime import timedelta, datetime, timezone
 
 iam = boto3.client('iam')
 secretsmanager = boto3.client('secretsmanager')
+sns = boto3.client('sns')
 
 def role_exists(role_name: str) -> bool:  
   try:
@@ -23,6 +24,7 @@ def role_exists(role_name: str) -> bool:
   except:
     print(sys.exc_info()[0])
     raise Exception(f'Uknown exception when checking if IAM role exists, check CloudWatch Logs for more details')
+
 
 def secret_exists(secret_name: str) -> bool:
   try:
@@ -39,6 +41,7 @@ def secret_exists(secret_name: str) -> bool:
   except:
     print(sys.exc_info()[0])
     raise Exception(f'Uknown exception when checking if Secrets Manager secret exists, check CloudWatch Logs for more details')
+
 
 def handler(event, context):
   try:
@@ -124,9 +127,7 @@ def handler(event, context):
     ]
   }
   if 'access' in msg:
-    print('DEBUG: access key is present in msg')
     if 'put' in msg['access']:
-      print('DEBUG: put string is present in msg["access"]')
       user_policy['Statement'].append({
         "Sid": "HomeDirObjectPutAccess",
         "Effect": "Allow",
@@ -137,7 +138,6 @@ def handler(event, context):
         "Resource": "arn:aws:s3:::${!transfer:HomeDirectory}*"
       })
     if 'delete' in msg['access']:
-      print('DEBUG: delete string is present in msg["access"]')
       user_policy['Statement'].append({
         "Sid": "HomeDirObjectDeleteAccess",
         "Effect": "Allow",
@@ -148,7 +148,6 @@ def handler(event, context):
         "Resource": "arn:aws:s3:::${!transfer:HomeDirectory}*"
       })
     if 'mkdir' in msg['access']:
-      print('DEBUG: mkdir string is present in msg["access"]')
       user_policy['Statement'].append({
         "Sid": "HomeDirObjectDenyMkdirAccess",
         "Effect": "Deny",
@@ -203,7 +202,9 @@ def handler(event, context):
       print(sys.exc_info()[0])
       raise Exception(f'Failed to create secrets manager secret sftp/{environment_name}/{msg["username"]}')
 
-  # TODO: publish details to SNS notification topic
   user_created_sns_topic = os.environ['USER_CREATED_SNS_TOPIC']
-
+  sns.publish(
+    TopicArn = user_created_sns_topic,
+    Message = f'Temporary sftp user \'{msg["username"]}\' was successfully created. Password is <{secret_string["Password"]}>'
+  )
   return
