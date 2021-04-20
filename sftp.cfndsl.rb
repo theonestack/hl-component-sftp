@@ -201,6 +201,17 @@ CloudFormation do
       })
     }
 
+    if dynamic_users
+      SNS_Topic(:CreateDynamicSftpUserTopic) {
+        Subscription([{
+          Protocol: 'lambda',
+          Endpoint: FnGetAtt(:CreateDynamicSftpUser, :Arn)
+        }])
+      }
+
+      SNS_Topic(:DynamicSftpUserCreatedTopic)
+    end
+
   end
 
   if endpoint.upcase == 'VPC_ENDPOINT' || endpoint.upcase == 'VPC'
@@ -405,7 +416,7 @@ CloudFormation do
   users.each do |user|
 
     if !user['name'].match?(/^[a-zA-Z0-9_][a-zA-Z0-9_-]{2,31}$/)
-      raise "#{user['name']} is invalide, must comply with `^[a-zA-Z0-9_][a-zA-Z0-9_-]{2,31}$`"
+      raise "#{user['name']} is invalid, must comply with `^[a-zA-Z0-9_][a-zA-Z0-9_-]{2,31}$`"
     end
 
     user_tags = default_tags.map(&:clone)

@@ -21,4 +21,5 @@ CfhighlanderTemplate do
 
   LambdaFunctions 'apigateway_identity_providor' if identity_provider.upcase == 'API_GATEWAY'
   LambdaFunctions 'output_vpc_endpoint_ips_custom_resource' if output_vpc_endpoint_ips
+  LambdaFunctions 'dynamic_users_create_and_cleanup' if identity_provider.upcase == 'API_GATEWAY' and dynamic_users
 end
