@@ -44,11 +44,7 @@ def secret_exists(secret_name: str) -> bool:
 
 
 def handler(event, context):
-  try:
-    msg = json.loads(event['Records'][0]['Sns']['Message'])
-  except:
-    print(sys.exc_info()[0])
-    raise Exception('Failed to load message from event payload. Must be valid JSON.')
+  msg = json.loads(event['Records'][0]['Sns']['Message'])
 
   # checking if superset since msg can also include these optional keys: "access" | "home" | "keys"
   if not set(msg.keys()) >= set(['username', 'bucket', 'TTL']):
