@@ -210,6 +210,14 @@ CloudFormation do
       }
 
       SNS_Topic(:DynamicSftpUserCreatedTopic)
+
+      Events_Rule(:CleanupUsersDailySchedule) {
+        ScheduleExpression 'rate(1 day)'
+        Targets([{
+          Arn: FnGetAtt(:CleanupDynamicSftpUsers, :Arn),
+          Id: 'cleanup-dyanmic-sftp-users-lambda'
+        }])
+      }
     end
 
   end
