@@ -15,6 +15,10 @@ max_availability_zones: 3
 # PUBLIC | VPC_ENDPOINT
 apigateway_endpoint: public
 
+# only has effect if identity_provider == API_GATEWAY
+# true | false
+dynamic_users: false
+
 # Custom resource to get the private ips of the private vpc endpoint
 # set to true if you want to add the vpc endpoint to a target group
 output_vpc_endpoint_ips: false
@@ -79,3 +83,85 @@ output_vpc_endpoint_ips_custom_resource:
       runtime: python3.7
       timeout: 60
       role: GetVpcEndpointIPs
+
+dynamic_users_create_and_cleanup:
+  custom_policies:
+    createuser-iam:
+      action:
+        - iam:GetRole
+        - iam:CreateRole
+        - iam:AttachRolePolicy
+        - iam:PutRolePolicy
+        - iam:CreatePolicy*
+      resource:
+        - Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/*
+        - Fn::Sub: arn:aws:iam::${AWS::AccountId}:policy/*
+    createuser-secretsmanager:
+      action:
+        - secretsmanager:GetSecretValue
+        - secretsmanager:DescribeSecret
+        - secretsmanager:RestoreSecret
+        - secretsmanager:PutSecretValue
+        - secretsmanager:CreateSecret
+      resource:
+        Fn::Sub: arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:*
+    createuser-getrandompassword:
+      action: secretsmanager:GetRandomPassword
+    createuser-snspublish:
+      action: sns:Publish
+      resource:
+        Ref: DynamicSftpUserCreatedTopic
+    cleanupusers-iam:
+      action:
+        - iam:DeleteRolePolicy
+        - iam:DeleteRole
+        - iam:ListRolePolicies
+      resource:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/*SftpAccessRole
+    cleanupusers-secretsmanager:
+      action:
+        - secretsmanager:GetSecretValue
+        - secretsmanager:DeleteSecret
+      resource: 
+        Fn::Sub: arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:sftp/${EnvironmentName}/*
+    cleanupusers-listsecrets:
+      action: secretsmanager:ListSecrets
+  roles:
+    CreateDynamicSftpUser:
+      policies_inline:
+        - cloudwatch-logs
+        - createuser-iam
+        - createuser-secretsmanager
+        - createuser-getrandompassword
+        - createuser-snspublish
+    CleanupDynamicSftpUsers:
+      policies_inline:
+        - cloudwatch-logs
+        - cleanupusers-iam
+        - cleanupusers-secretsmanager
+        - cleanupusers-listsecrets
+  functions:
+    CreateDynamicSftpUser:
+      named: true
+      code: create_dynamic_sftp_user/index.py
+      handler: index.handler
+      runtime: python3.8
+      timeout: 60
+      role: CreateDynamicSftpUser
+      log_retention: 90
+      environment:
+        ENVIRONMENT_NAME:
+          Ref: EnvironmentName
+        USER_CREATED_SNS_TOPIC:
+          Ref: DynamicSftpUserCreatedTopic
+    CleanupDynamicSftpUsers:
+      named: true
+      code: cleanup_dynamic_sftp_users/index.py
+      handler: index.handler
+      runtime: python3.8
+      timeout: 60
+      role: CleanupDynamicSftpUsers
+      log_retention: 90
+      environment:
+        ENVIRONMENT_NAME:
+          Ref: EnvironmentName
