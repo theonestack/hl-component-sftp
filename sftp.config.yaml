@@ -111,6 +111,21 @@ dynamic_users_create_and_cleanup:
       action: sns:Publish
       resource:
         Ref: DynamicSftpUserCreatedTopic
+    cleanupusers-iam:
+      action:
+        - iam:DeleteRolePolicy
+        - iam:DeleteRole
+        - iam:ListRolePolicies
+      resource:
+        Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/*SftpAccessRole
+    cleanupusers-secretsmanager:
+      action:
+        - secretsmanager:GetSecretValue
+        - secretsmanager:DeleteSecret
+      resource: 
+        Fn::Sub: arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:sftp/${EnvironmentName}/*
+    cleanupusers-listsecrets:
+      action: secretsmanager:ListSecrets
   roles:
     CreateDynamicSftpUser:
       policies_inline:
@@ -118,10 +133,13 @@ dynamic_users_create_and_cleanup:
         - createuser-iam
         - createuser-secretsmanager
         - createuser-getrandompassword
+        - createuser-snspublish
     CleanupDynamicSftpUsers:
       policies_inline:
         - cloudwatch-logs
-        - custom-policy
+        - cleanupusers-iam
+        - cleanupusers-secretsmanager
+        - cleanupusers-listsecrets
   functions:
     CreateDynamicSftpUser:
       named: true
