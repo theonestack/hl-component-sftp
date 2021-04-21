@@ -211,7 +211,7 @@ CloudFormation do
 
       Output(:CreateDynamicSftpUserTopic) {
         Value(Ref(:CreateDynamicSftpUserTopic))
-        Export({Name: FnSub('${AWS::StackName}-create-sftp-user-topic')})
+        Export(FnSub('${AWS::StackName}-create-sftp-user-topic'))
       }
 
       SNS_Topic(:DynamicSftpUserCreatedTopic)
