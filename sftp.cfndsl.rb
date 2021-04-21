@@ -209,10 +209,18 @@ CloudFormation do
         }])
       }
 
-      Output(:CreateDynamicSftpUserTopic) { Value(Ref(:CreateDynamicSftpUserTopic)) }
+      Output(:CreateDynamicSftpUserTopic) {
+        Value Ref(:CreateDynamicSftpUserTopic)
+        Export FnSub("${EnvironmentName}-#{external_parameters[:component_name]}-create-user-topic")
+      }
 
       SNS_Topic(:DynamicSftpUserCreatedTopic)
 
+      Output(:DynamicSftpUserCreatedTopic) {
+        Value Ref(:DynamicSftpUserCreatedTopic)
+        Export FnSub("${EnvironmentName}-#{external_parameters[:component_name]}-user-created-topic")
+      }
+      
       Events_Rule(:CleanupUsersDailySchedule) {
         ScheduleExpression 'rate(1 day)'
         Targets([{
