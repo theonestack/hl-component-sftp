@@ -209,6 +209,11 @@ CloudFormation do
         }])
       }
 
+      Output(:CreateDynamicSftpUserTopic) {
+        Value(Ref(:CreateDynamicSftpUserTopic))
+        Export({Name: FnSub('${AWS::Stackname}-create-sftp-user-topic')})
+      }
+
       SNS_Topic(:DynamicSftpUserCreatedTopic)
 
       Events_Rule(:CleanupUsersDailySchedule) {
