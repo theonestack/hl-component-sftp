@@ -177,7 +177,7 @@ def handler(event, context):
     if 'Password' in existing_secret:
       secret_string['Password'] = existing_secret['Password']
     else:
-      secret_string['Password'] = secretsmanager.get_random_password()['RandomPassword']
+      secret_string['Password'] = secretsmanager.get_random_password(ExcludePunctuation=True)['RandomPassword']
     try:
       secretsmanager.put_secret_value(
         SecretId = secret_name,
@@ -187,7 +187,7 @@ def handler(event, context):
       print(sys.exc_info()[0])
       raise Exception(f'Failed to put new secret value for sftp/{environment_name}/{msg["username"]}')
   else:
-    secret_string['Password'] = secretsmanager.get_random_password()['RandomPassword']
+    secret_string['Password'] = secretsmanager.get_random_password(ExcludePunctuation=True)['RandomPassword']
     try:
       secretsmanager.create_secret(
         Name=secret_name,
