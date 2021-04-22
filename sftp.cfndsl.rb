@@ -221,12 +221,26 @@ CloudFormation do
         Export FnSub("${EnvironmentName}-#{external_parameters[:component_name]}-user-created-topic")
       }
       
+      Lambda_Permission(:CreateDynamicSftpUserLambdaPermission) {
+        FunctionName FnGetAtt(:CreateDynamicSftpUser, :Arn)
+        Action 'lambda:InvokeFunction'
+        Principal 'sns.amazonaws.com'
+        SourceArn Ref(:CreateDynamicSftpUserTopic)
+      }
+
       Events_Rule(:CleanupUsersDailySchedule) {
         ScheduleExpression 'rate(1 day)'
         Targets([{
           Arn: FnGetAtt(:CleanupDynamicSftpUsers, :Arn),
           Id: 'cleanup-dyanmic-sftp-users-lambda'
         }])
+      }
+
+      Lambda_Permission(:CleanupDynamicSftpUsersLambdaPermission) {
+        FunctionName FnGetAtt(:CleanupDynamicSftpUsers, :Arn)
+        Action 'lambda:InvokeFunction'
+        Principal 'events.amazonaws.com'
+        SourceArn FnGetAtt(:CleanupUsersDailySchedule, :Arn)
       }
     end
 

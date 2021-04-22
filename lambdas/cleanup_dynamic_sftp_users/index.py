@@ -56,7 +56,6 @@ def handler(event, context):
           secretsmanager.delete_secret(
             SecretId = sftp_user,
             RecoveryWindowInDays = 7
-            # or should I do ForceDeleteWithoutRecovery instead?
           )
         except ClientError as error:
           print(f'Failed to delete secret \'{sftp_user}\', error: {error.response["Error"]["Code"]}, continuing onto next sftp_user')
