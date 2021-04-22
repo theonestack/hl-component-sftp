@@ -221,7 +221,7 @@ CloudFormation do
         Export FnSub("${EnvironmentName}-#{external_parameters[:component_name]}-user-created-topic")
       }
       
-      Lambda_Permission(:SnsInvokeLambdaPermission) {
+      Lambda_Permission(:CreateDynamicSftpUserLambdaPermission) {
         FunctionName FnGetAtt(:CreateDynamicSftpUser, :Arn)
         Action 'lambda:InvokeFunction'
         Principal 'sns.amazonaws.com'
