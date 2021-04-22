@@ -91,12 +91,12 @@ def handler(event, context):
         "Sid": "AllowListingOfUserFolder",
         "Action": [ "s3:ListBucket" ],
         "Effect": "Allow",
-        "Resource": [ "arn:aws:s3:::${!transfer:HomeBucket}" ],
+        "Resource": [ "arn:aws:s3:::${transfer:HomeBucket}" ],
         "Condition": {
           "StringLike": {
             "s3:prefix": [
-              "${!transfer:HomeFolder}/*",
-              "${!transfer:HomeFolder}"
+              "${transfer:HomeFolder}/*",
+              "${transfer:HomeFolder}"
             ]
           }
         }
@@ -118,7 +118,7 @@ def handler(event, context):
           "s3:GetObjectVersion",
           "s3:GetObjectACL"
         ],
-        "Resource": "arn:aws:s3:::${!transfer:HomeDirectory}*"
+        "Resource": "arn:aws:s3:::${transfer:HomeDirectory}*"
       }
     ]
   }
@@ -131,7 +131,7 @@ def handler(event, context):
           "s3:PutObject",
           "s3:PutObjectACL"
         ],
-        "Resource": "arn:aws:s3:::${!transfer:HomeDirectory}*"
+        "Resource": "arn:aws:s3:::${transfer:HomeDirectory}*"
       })
     if 'delete' in msg['access']:
       user_policy['Statement'].append({
@@ -141,15 +141,15 @@ def handler(event, context):
           "s3:DeleteObjectVersion",
           "s3:DeleteObject"
         ],
-        "Resource": "arn:aws:s3:::${!transfer:HomeDirectory}*"
+        "Resource": "arn:aws:s3:::${transfer:HomeDirectory}*"
       })
-    if 'mkdir' in msg['access']:
-      user_policy['Statement'].append({
-        "Sid": "HomeDirObjectDenyMkdirAccess",
-        "Effect": "Deny",
-        "Action": ["s3:PutObject"],
-        "Resource": "arn:aws:s3:::${!transfer:HomeBucket}/*/"
-      })
+  if 'access' not in msg or 'mkdir' not in msg['access']:
+    user_policy['Statement'].append({
+      "Sid": "HomeDirObjectDenyMkdirAccess",
+      "Effect": "Deny",
+      "Action": ["s3:PutObject"],
+      "Resource": "arn:aws:s3:::${transfer:HomeBucket}/*/"
+    })
   
   # no need to make the following code conditional since we are assuming that this function only gets run when identity_provider == API_GATEWAY
 
@@ -177,7 +177,7 @@ def handler(event, context):
     if 'Password' in existing_secret:
       secret_string['Password'] = existing_secret['Password']
     else:
-      secret_string['Password'] = secretsmanager.get_random_password()['RandomPassword']
+      secret_string['Password'] = secretsmanager.get_random_password(ExcludePunctuation=True)['RandomPassword']
     try:
       secretsmanager.put_secret_value(
         SecretId = secret_name,
@@ -187,7 +187,7 @@ def handler(event, context):
       print(sys.exc_info()[0])
       raise Exception(f'Failed to put new secret value for sftp/{environment_name}/{msg["username"]}')
   else:
-    secret_string['Password'] = secretsmanager.get_random_password()['RandomPassword']
+    secret_string['Password'] = secretsmanager.get_random_password(ExcludePunctuation=True)['RandomPassword']
     try:
       secretsmanager.create_secret(
         Name=secret_name,

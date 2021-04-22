@@ -20,7 +20,8 @@ If set to `true` then the stack will also create an SNS topic that takes a paylo
 
 `username`, `bucket`, and `TTL` are required, the rest are optional
 
-This SNS topic will then trigger a lambda which will automatically handle the creation temporary sftp user
+This SNS topic will then trigger a lambda which will automatically handle the creation of the temporary sftp user
+
 A scheduled daily clean up lambda will automatically delete the temporary sftp user after the specified TTL
 
 ### `endpoint`

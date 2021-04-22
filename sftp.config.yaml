@@ -142,7 +142,6 @@ dynamic_users_create_and_cleanup:
         - cleanupusers-listsecrets
   functions:
     CreateDynamicSftpUser:
-      named: true
       code: create_dynamic_sftp_user/index.py
       handler: index.handler
       runtime: python3.8
@@ -155,7 +154,6 @@ dynamic_users_create_and_cleanup:
         USER_CREATED_SNS_TOPIC:
           Ref: DynamicSftpUserCreatedTopic
     CleanupDynamicSftpUsers:
-      named: true
       code: cleanup_dynamic_sftp_users/index.py
       handler: index.handler
       runtime: python3.8
