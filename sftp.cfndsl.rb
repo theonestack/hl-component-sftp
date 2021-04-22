@@ -225,7 +225,6 @@ CloudFormation do
         FunctionName FnGetAtt(:CreateDynamicSftpUser, :Arn)
         Action 'lambda:InvokeFunction'
         Principal 'sns.amazonaws.com'
-        SourceAccount Ref('AWS::AccountId')
         SourceArn Ref(:CreateDynamicSftpUserTopic)
       }
 
