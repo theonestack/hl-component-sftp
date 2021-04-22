@@ -235,6 +235,13 @@ CloudFormation do
           Id: 'cleanup-dyanmic-sftp-users-lambda'
         }])
       }
+
+      Lambda_Permission(:CleanupDynamicSftpUsersLambdaPermission) {
+        FunctionName FnGetAtt(:CleanupDynamicSftpUsers, :Arn)
+        Action 'lambda:InvokeFunction'
+        Principal 'events.amazonaws.com'
+        SourceArn FnGetAtt(:CleanupUsersDailySchedule, :Arn)
+      }
     end
 
   end
