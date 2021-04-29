@@ -1,14 +1,19 @@
 CloudFormation do
 
-  Condition(:IfDns, FnNot(FnEquals(Ref(:DnsDomain), '')))
+  Condition(:TransferServerEnabled, FnEquals(Ref(:EnableTransferServer), 'true'))
+  Condition(:IfDns, FnAnd([
+    FnNot(FnEquals(Ref(:DnsDomain), '')),
+    Condition(:TransferServerEnabled)
+  ]))
 
   default_tags = []
   default_tags << { Key: "Environment", Value: Ref("EnvironmentName") }
   default_tags << { Key: "EnvironmentType", Value: Ref("EnvironmentType") }
 
+  tags = external_parameters.fetch(:tags, {})
   tags.each do |key, value|
     default_tags << { Key: key, Value: value }
-  end if defined? tags
+  end
 
   # Create the resources required for the apigateway identity providor
   if identity_provider.upcase == 'API_GATEWAY'
@@ -409,6 +414,7 @@ CloudFormation do
   storage_type =  external_parameters.fetch(:storage_type, nil)
 
   Transfer_Server(:SftpServer) {
+    Condition(:TransferServerEnabled)
 
     EndpointType endpoint.upcase
 
@@ -445,6 +451,7 @@ CloudFormation do
     Tags sftp_tags
   }
 
+  users = external_parameters.fetch(:users, [])
   users.each do |user|
 
     if !user['name'].match?(/^[a-zA-Z0-9_][a-zA-Z0-9_-]{2,31}$/)
@@ -581,6 +588,7 @@ CloudFormation do
       home_directory = user.has_key?('home') ? "/#{user['bucket']}#{user['home']}" : "/#{user['bucket']}/home/#{user['name']}"
 
       Transfer_User("#{user['name']}SftpUser") {
+        Condition(:TransferServerEnabled)
         HomeDirectory FnSub(home_directory)
         UserName user['name']
         ServerId FnGetAtt(:SftpServer, :ServerId)
@@ -595,7 +603,7 @@ CloudFormation do
       }
     end
 
-  end if defined? users
+  end
 
   Route53_RecordSet(:SftpServerRecord) {
     Condition('IfDns')
@@ -607,7 +615,17 @@ CloudFormation do
     ResourceRecords [ FnJoin('.',[ FnGetAtt(:SftpServer, :ServerId), 'server.transfer', Ref('AWS::Region'), 'amazonaws.com' ]) ]
   }
 
-  Output(:SftpServerId) { Value(FnGetAtt(:SftpServer, :ServerId)) }
-  Output(:SftpServerEndpoint) { Value(FnJoin('.',[ FnGetAtt(:SftpServer, :ServerId), 'server.transfer', Ref('AWS::Region'), 'amazonaws.com' ])) }
+  Output(:SftpServerId) {
+    FnIf(:TransferServerEnabled,
+      Value(FnGetAtt(:SftpServer, :ServerId)),
+      ""
+    )
+  }
+  Output(:SftpServerEndpoint) { 
+    FnIf(:TransferServerEnabled,
+      Value(FnJoin('.',[ FnGetAtt(:SftpServer, :ServerId), 'server.transfer', Ref('AWS::Region'), 'amazonaws.com' ])),
+      ""
+    )
+  }
 
 end

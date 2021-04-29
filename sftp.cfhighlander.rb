@@ -4,6 +4,7 @@ CfhighlanderTemplate do
     ComponentParam 'EnvironmentName', 'dev', isGlobal: true
     ComponentParam 'EnvironmentType', 'development', allowedValues: ['development','production'], isGlobal: true
     ComponentParam 'DnsDomain', ''
+    ComponentParam 'EnableTransferServer', 'true', allowedValues: ['true','false']
     if endpoint.upcase == 'VPC_ENDPOINT' || endpoint.upcase == 'VPC'
       ComponentParam 'VpcId', type: 'AWS::EC2::VPC::Id'
       ComponentParam 'SubnetIds', type: 'CommaDelimitedList'
