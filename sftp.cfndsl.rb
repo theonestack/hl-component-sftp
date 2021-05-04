@@ -616,15 +616,19 @@ CloudFormation do
   }
 
   Output(:SftpServerId) {
-    FnIf(:TransferServerEnabled,
-      Value(FnGetAtt(:SftpServer, :ServerId)),
-      ""
-    )
+      Value(
+        FnIf(:TransferServerEnabled,
+          FnGetAtt(:SftpServer, :ServerId),
+          ""
+        )
+      )
   }
   Output(:SftpServerEndpoint) { 
-    FnIf(:TransferServerEnabled,
-      Value(FnJoin('.',[ FnGetAtt(:SftpServer, :ServerId), 'server.transfer', Ref('AWS::Region'), 'amazonaws.com' ])),
-      ""
+    Value(
+      FnIf(:TransferServerEnabled,
+        FnJoin('.',[ FnGetAtt(:SftpServer, :ServerId), 'server.transfer', Ref('AWS::Region'), 'amazonaws.com' ]),
+        ""
+      )
     )
   }
 
