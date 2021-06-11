@@ -4,11 +4,11 @@ describe 'compiled component sftp' do
   
   context 'cftest' do
     it 'compiles test' do
-      expect(system("cfhighlander cftest #{@validate} --tests tests/identity_providor.test.yaml")).to be_truthy
+      expect(system("cfhighlander cftest #{@validate} --tests tests/identity_provider.test.yaml")).to be_truthy
     end      
   end
   
-  let(:template) { YAML.load_file("#{File.dirname(__FILE__)}/../out/tests/identity_providor/sftp.compiled.yaml") }
+  let(:template) { YAML.load_file("#{File.dirname(__FILE__)}/../out/tests/identity_provider/sftp.compiled.yaml") }
   
   context "Resource" do
 
@@ -21,7 +21,7 @@ describe 'compiled component sftp' do
       end
       
       it "to have property Name" do
-          expect(resource["Properties"]["Name"]).to eq({"Fn::Sub"=>"${EnvironmentName}-sftp-custom-identity-providor"})
+          expect(resource["Properties"]["Name"]).to eq({"Fn::Sub"=>"${EnvironmentName}-sftp-custom-identity-provider"})
       end
       
       it "to have property FailOnWarnings" do
@@ -152,8 +152,8 @@ describe 'compiled component sftp' do
       
     end
     
-    context "SftpIdentityProvidorLambdaPermission" do
-      let(:resource) { template["Resources"]["SftpIdentityProvidorLambdaPermission"] }
+    context "SftpIdentityProviderLambdaPermission" do
+      let(:resource) { template["Resources"]["SftpIdentityProviderLambdaPermission"] }
 
       it "is of type AWS::Lambda::Permission" do
           expect(resource["Type"]).to eq("AWS::Lambda::Permission")
@@ -164,7 +164,7 @@ describe 'compiled component sftp' do
       end
       
       it "to have property FunctionName" do
-          expect(resource["Properties"]["FunctionName"]).to eq({"Ref"=>"SftpIdentityProvidor"})
+          expect(resource["Properties"]["FunctionName"]).to eq({"Ref"=>"SftpIdentityProvider"})
       end
       
       it "to have property Principal" do
@@ -298,7 +298,7 @@ describe 'compiled component sftp' do
       end
       
       it "to have property Integration" do
-          expect(resource["Properties"]["Integration"]).to eq({"Type"=>"AWS", "IntegrationHttpMethod"=>"POST", "Uri"=>{"Fn::Join"=>["", ["arn:aws:apigateway:", {"Ref"=>"AWS::Region"}, ":lambda:path/2015-03-31/functions/", {"Fn::GetAtt"=>["SftpIdentityProvidor", "Arn"]}, "/invocations"]]}, "IntegrationResponses"=>[{"StatusCode"=>200}], "RequestTemplates"=>{"application/json"=>"{\"username\":\"$input.params('username')\",\"password\":\"$input.params('Password')\",\"serverId\":\"$input.params('serverId')\"}"}})
+          expect(resource["Properties"]["Integration"]).to eq({"Type"=>"AWS", "IntegrationHttpMethod"=>"POST", "Uri"=>{"Fn::Join"=>["", ["arn:aws:apigateway:", {"Ref"=>"AWS::Region"}, ":lambda:path/2015-03-31/functions/", {"Fn::GetAtt"=>["SftpIdentityProvider", "Arn"]}, "/invocations"]]}, "IntegrationResponses"=>[{"StatusCode"=>200}], "RequestTemplates"=>{"application/json"=>"{\"username\":\"$input.params('username')\",\"password\":\"$input.params('Password')\",\"serverId\":\"$input.params('serverId')\"}"}})
       end
       
       it "to have property RequestParameters" do
@@ -389,7 +389,7 @@ describe 'compiled component sftp' do
       end
       
       it "to have property Tags" do
-          expect(resource["Properties"]["Tags"]).to eq([{"Key"=>"Environment", "Value"=>{"Ref"=>"EnvironmentName"}}, {"Key"=>"EnvironmentType", "Value"=>{"Ref"=>"EnvironmentType"}}, {"Key"=>"Name", "Value"=>{"Fn::Sub"=>"sftp-${EnvironmentName}"}}, {"Key"=>"IdentityProvidorUrl", "Value"=>{"Fn::Sub"=>"https://${CustomIdentityProviderApi}.execute-api.${AWS::Region}.amazonaws.com/${ApiStage}"}}])
+          expect(resource["Properties"]["Tags"]).to eq([{"Key"=>"Environment", "Value"=>{"Ref"=>"EnvironmentName"}}, {"Key"=>"EnvironmentType", "Value"=>{"Ref"=>"EnvironmentType"}}, {"Key"=>"Name", "Value"=>{"Fn::Sub"=>"sftp-${EnvironmentName}"}}, {"Key"=>"IdentityProviderUrl", "Value"=>{"Fn::Sub"=>"https://${CustomIdentityProviderApi}.execute-api.${AWS::Region}.amazonaws.com/${ApiStage}"}}])
       end
       
     end
@@ -511,8 +511,8 @@ describe 'compiled component sftp' do
       
     end
     
-    context "LambdaRoleSftpIdentityProvidor" do
-      let(:resource) { template["Resources"]["LambdaRoleSftpIdentityProvidor"] }
+    context "LambdaRoleSftpIdentityProvider" do
+      let(:resource) { template["Resources"]["LambdaRoleSftpIdentityProvider"] }
 
       it "is of type AWS::IAM::Role" do
           expect(resource["Type"]).to eq("AWS::IAM::Role")
@@ -532,8 +532,8 @@ describe 'compiled component sftp' do
       
     end
     
-    context "SftpIdentityProvidor" do
-      let(:resource) { template["Resources"]["SftpIdentityProvidor"] }
+    context "SftpIdentityProvider" do
+      let(:resource) { template["Resources"]["SftpIdentityProvider"] }
 
       it "is of type AWS::Lambda::Function" do
           expect(resource["Type"]).to eq("AWS::Lambda::Function")
@@ -552,7 +552,7 @@ describe 'compiled component sftp' do
       end
       
       it "to have property Role" do
-          expect(resource["Properties"]["Role"]).to eq({"Fn::GetAtt"=>["LambdaRoleSftpIdentityProvidor", "Arn"]})
+          expect(resource["Properties"]["Role"]).to eq({"Fn::GetAtt"=>["LambdaRoleSftpIdentityProvider", "Arn"]})
       end
       
       it "to have property Runtime" do
@@ -564,20 +564,20 @@ describe 'compiled component sftp' do
       end
       
       it "to have property FunctionName" do
-          expect(resource["Properties"]["FunctionName"]).to eq("SftpIdentityProvidor")
+          expect(resource["Properties"]["FunctionName"]).to eq("SftpIdentityProvider")
       end
       
     end
     
-    context "SftpIdentityProvidorLogGroup" do
-      let(:resource) { template["Resources"]["SftpIdentityProvidorLogGroup"] }
+    context "SftpIdentityProviderLogGroup" do
+      let(:resource) { template["Resources"]["SftpIdentityProviderLogGroup"] }
 
       it "is of type AWS::Logs::LogGroup" do
           expect(resource["Type"]).to eq("AWS::Logs::LogGroup")
       end
       
       it "to have property LogGroupName" do
-          expect(resource["Properties"]["LogGroupName"]).to eq("/aws/lambda/SftpIdentityProvidor")
+          expect(resource["Properties"]["LogGroupName"]).to eq("/aws/lambda/SftpIdentityProvider")
       end
       
       it "to have property RetentionInDays" do

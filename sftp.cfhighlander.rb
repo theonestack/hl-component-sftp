@@ -5,6 +5,9 @@ CfhighlanderTemplate do
     ComponentParam 'EnvironmentType', 'development', allowedValues: ['development','production'], isGlobal: true
     ComponentParam 'DnsDomain', ''
     ComponentParam 'EnableTransferServer', 'true', allowedValues: ['true','false']
+    if identity_provider.upcase == 'API_GATEWAY' && dynamic_users  == true
+      ComponentParam 'S3Message', ''
+    end
     if endpoint.upcase == 'VPC_ENDPOINT' || endpoint.upcase == 'VPC'
       ComponentParam 'VpcId', type: 'AWS::EC2::VPC::Id'
       ComponentParam 'SubnetIds', type: 'CommaDelimitedList'
@@ -20,7 +23,7 @@ CfhighlanderTemplate do
     end
   end
 
-  LambdaFunctions 'apigateway_identity_providor' if identity_provider.upcase == 'API_GATEWAY'
+  LambdaFunctions 'apigateway_identity_provider' if identity_provider.upcase == 'API_GATEWAY'
   LambdaFunctions 'output_vpc_endpoint_ips_custom_resource' if output_vpc_endpoint_ips
   LambdaFunctions 'dynamic_users_create_and_cleanup' if identity_provider.upcase == 'API_GATEWAY' and dynamic_users
 end

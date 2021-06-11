@@ -5,6 +5,7 @@ CloudFormation do
     FnNot(FnEquals(Ref(:DnsDomain), '')),
     Condition(:TransferServerEnabled)
   ]))
+  Condition(:s3Message, FnNot(FnEquals(Ref(:S3Message), '')))
 
   default_tags = []
   default_tags << { Key: "Environment", Value: Ref("EnvironmentName") }
@@ -15,11 +16,11 @@ CloudFormation do
     default_tags << { Key: key, Value: value }
   end
 
-  # Create the resources required for the apigateway identity providor
+  # Create the resources required for the apigateway identity provider
   if identity_provider.upcase == 'API_GATEWAY'
 
     ApiGateway_RestApi(:CustomIdentityProviderApi) {
-      Name FnSub("${EnvironmentName}-sftp-custom-identity-providor")
+      Name FnSub("${EnvironmentName}-sftp-custom-identity-provider")
       FailOnWarnings true
       EndpointConfiguration({
         Types: ['REGIONAL']
@@ -118,9 +119,9 @@ CloudFormation do
       StageName FnSub('${EnvironmentName}-deployment')
     }
 
-    Lambda_Permission(:SftpIdentityProvidorLambdaPermission) {
+    Lambda_Permission(:SftpIdentityProviderLambdaPermission) {
       Action 'lambda:invokeFunction'
-      FunctionName Ref('SftpIdentityProvidor')
+      FunctionName Ref('SftpIdentityProvider')
       Principal 'apigateway.amazonaws.com'
       SourceArn FnSub("arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${CustomIdentityProviderApi}/*")
     }
@@ -161,7 +162,7 @@ CloudFormation do
       Integration({
         Type: 'AWS',
         IntegrationHttpMethod: 'POST',
-        Uri: FnJoin('',['arn:aws:apigateway:', Ref('AWS::Region'), ':lambda:path/2015-03-31/functions/', FnGetAtt(:SftpIdentityProvidor, :Arn), '/invocations']),
+        Uri: FnJoin('',['arn:aws:apigateway:', Ref('AWS::Region'), ':lambda:path/2015-03-31/functions/', FnGetAtt(:SftpIdentityProvider, :Arn), '/invocations']),
         IntegrationResponses: [
           { StatusCode: 200 }
         ],
@@ -315,11 +316,11 @@ CloudFormation do
     if apigateway_endpoint.upcase == 'VPC_ENDPOINT' and identity_provider.upcase == 'API_GATEWAY'
 
       api_sg_tags = default_tags.map(&:clone)
-      api_sg_tags << { Key: "Name", Value: FnSub("${EnvironmentName}-api-gateway-sftp-identidy-providor") }
+      api_sg_tags << { Key: "Name", Value: FnSub("${EnvironmentName}-api-gateway-sftp-identidy-provider") }
 
       EC2_SecurityGroup(:ApiGatewaySecurityGroup) {
         VpcId Ref(:VpcId)
-        GroupDescription FnSub("Controll https access to the ${EnvironmentName} api gateway sftp identity providor vpc endpoint")
+        GroupDescription FnSub("Controll https access to the ${EnvironmentName} api gateway sftp identity provider vpc endpoint")
         SecurityGroupIngress [{
           SourceSecurityGroupId: Ref(:SftpSecurityGroup),
           Description: "SFTP VPC Endpoint Security Group Id",
@@ -408,6 +409,24 @@ CloudFormation do
     }])
   }
 
+  IAM_Policy(:LambdaRoleCreateDynamicSftpUserS3Policy) {
+    Condition(:s3Message)
+    PolicyDocument (
+      {
+        Statement: [
+          {
+            Effect: "Allow",
+            Action: [
+              "s3:GetObject"
+            ],
+            Resource: "*"
+          }
+        ]
+    })
+    PolicyName 's3get'
+    Roles [Ref('LambdaRoleCreateDynamicSftpUser')]
+  }
+
   sftp_tags = default_tags.map(&:clone)
   sftp_tags << { Key: "Name", Value: FnSub("#{server_name}-${EnvironmentName}") }
 
@@ -444,7 +463,7 @@ CloudFormation do
         InvocationRole: FnGetAtt(:TransferIdentityProviderRole, :Arn),
         Url: FnSub("https://${CustomIdentityProviderApi}.execute-api.${AWS::Region}.amazonaws.com/${ApiStage}")
       })
-      sftp_tags << { Key: 'IdentityProvidorUrl', Value: FnSub("https://${CustomIdentityProviderApi}.execute-api.${AWS::Region}.amazonaws.com/${ApiStage}") }
+      sftp_tags << { Key: 'IdentityProviderUrl', Value: FnSub("https://${CustomIdentityProviderApi}.execute-api.${AWS::Region}.amazonaws.com/${ApiStage}") }
     end
 
     LoggingRole FnGetAtt('SftpServerLoggingRole','Arn')
