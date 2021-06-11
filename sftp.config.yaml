@@ -153,7 +153,8 @@ dynamic_users_create_and_cleanup:
           Ref: EnvironmentName
         USER_CREATED_SNS_TOPIC:
           Ref: DynamicSftpUserCreatedTopic
-        MESSAGE_S3_PATH: ${S3Message}
+        MESSAGE_S3_PATH: 
+          Ref: S3Message
         
     CleanupDynamicSftpUsers:
       code: cleanup_dynamic_sftp_users/index.py
