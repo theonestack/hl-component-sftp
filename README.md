@@ -64,9 +64,9 @@ publish the templates to s3
 cfpublish sftp --version latest
 ```
 
-## Using an S3 file for the message content
+## Using an S3 file for the message content sent to SNS via CreateDynamicSftpUser
 
-You need to change the IAM policy given to the CreateDynamicSftpUser script, by adding the following into sftp.config.yaml
+You need to change the IAM policy given to the CreateDynamicSftpUser script, by adding the following into sftp.config.yaml (note the s3get policy)
 ```
 dynamic_users_create_and_cleanup: 
   custom_policies:
@@ -146,3 +146,5 @@ CfhighlanderTemplate do
   end
 end
 ```
+
+Now when the Lambda is called, it will use the template file stored in S3 as the message that is sent to SNS.
