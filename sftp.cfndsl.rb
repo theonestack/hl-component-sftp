@@ -5,7 +5,9 @@ CloudFormation do
     FnNot(FnEquals(Ref(:DnsDomain), '')),
     Condition(:TransferServerEnabled)
   ]))
-  Condition(:s3Message, FnNot(FnEquals(Ref(:S3Message), '')))
+  if identity_provider.upcase == 'API_GATEWAY' && dynamic_users
+    Condition(:s3Message, FnNot(FnEquals(Ref(:S3Message), '')))
+  end
 
   default_tags = []
   default_tags << { Key: "Environment", Value: Ref("EnvironmentName") }
@@ -409,23 +411,25 @@ CloudFormation do
     }])
   }
 
-  IAM_Policy(:LambdaRoleCreateDynamicSftpUserS3Policy) {
-    Condition(:s3Message)
-    PolicyDocument (
-      {
-        Statement: [
-          {
-            Effect: "Allow",
-            Action: [
-              "s3:GetObject"
-            ],
-            Resource: "*"
-          }
-        ]
-    })
-    PolicyName 's3get'
-    Roles [Ref('LambdaRoleCreateDynamicSftpUser')]
-  }
+  if identity_provider.upcase == 'API_GATEWAY' && dynamic_users
+    IAM_Policy(:LambdaRoleCreateDynamicSftpUserS3Policy) {
+      Condition(:s3Message)
+      PolicyDocument (
+        {
+          Statement: [
+            {
+              Effect: "Allow",
+              Action: [
+                "s3:GetObject"
+              ],
+              Resource: "*"
+            }
+          ]
+      })
+      PolicyName 's3get'
+      Roles [Ref('LambdaRoleCreateDynamicSftpUser')]
+    }
+  end
 
   sftp_tags = default_tags.map(&:clone)
   sftp_tags << { Key: "Name", Value: FnSub("#{server_name}-${EnvironmentName}") }
