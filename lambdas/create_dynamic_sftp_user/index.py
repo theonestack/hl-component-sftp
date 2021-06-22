@@ -11,6 +11,7 @@ from datetime import timedelta, datetime, timezone
 iam = boto3.client('iam')
 secretsmanager = boto3.client('secretsmanager')
 sns = boto3.client('sns')
+s3 = boto3.resource('s3')
 
 def role_exists(role_name: str) -> bool:  
   try:
@@ -199,8 +200,19 @@ def handler(event, context):
       raise Exception(f'Failed to create secrets manager secret sftp/{environment_name}/{msg["username"]}')
 
   user_created_sns_topic = os.environ['USER_CREATED_SNS_TOPIC']
+  if os.environ['MESSAGE_S3_PATH'] != '':
+    s3env = os.environ['MESSAGE_S3_PATH'].replace('s3://','')
+    bucketName = s3env.split('/')[0]
+    filePath = s3env.split('/')[1]
+    object = s3.Object(bucketName, filePath)
+    messageContent = object.get()['Body'].read().decode('utf-8')
+    messageContent = messageContent.replace('USERVAR', msg["username"])
+    messageContent = messageContent.replace('PASSVAR', secret_string["Password"])
+  else:
+    messageContent = f'Temporary sftp user \'{msg["username"]}\' was successfully created. Password is <{secret_string["Password"]}>'
+    
   sns.publish(
     TopicArn = user_created_sns_topic,
-    Message = f'Temporary sftp user \'{msg["username"]}\' was successfully created. Password is <{secret_string["Password"]}>'
+    Message = messageContent
   )
   return

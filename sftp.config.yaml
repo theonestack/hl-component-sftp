@@ -32,7 +32,7 @@ output_vpc_endpoint_ips: false
 # set the format of the hosted zone fo the sftp CNAME record using parameters
 dns_format: ${EnvironmentName}.${DnsDomain}
 
-apigateway_identity_providor:
+apigateway_identity_provider:
   custom_policies:
     get-secrets:
       action:
@@ -40,18 +40,18 @@ apigateway_identity_providor:
       resource:
         Fn::Sub: arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:sftp/${EnvironmentName}/*
   roles:
-    SftpIdentityProvidor:
+    SftpIdentityProvider:
       policies_inline:
         - cloudwatch-logs
         - get-secrets
   functions:
-    SftpIdentityProvidor:
+    SftpIdentityProvider:
       named: true
       code: identity_provider/index.py
       handler: index.handler
       runtime: python3.7
       timeout: 30
-      role: SftpIdentityProvidor
+      role: SftpIdentityProvider
       log_retention: 90
       environment:
         ENVIRONMENT_NAME:
@@ -153,6 +153,9 @@ dynamic_users_create_and_cleanup:
           Ref: EnvironmentName
         USER_CREATED_SNS_TOPIC:
           Ref: DynamicSftpUserCreatedTopic
+        MESSAGE_S3_PATH: 
+          Ref: S3Message
+        
     CleanupDynamicSftpUsers:
       code: cleanup_dynamic_sftp_users/index.py
       handler: index.handler

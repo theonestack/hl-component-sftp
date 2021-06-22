@@ -1,7 +1,7 @@
 test_metadata:
   type: config
   name: dynamic_users
-  description: test dynamic users for api_gateway identity providor
+  description: test dynamic users for api_gateway identity provider
 
 identity_provider: API_GATEWAY
 

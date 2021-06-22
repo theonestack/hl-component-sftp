@@ -1,7 +1,7 @@
 test_metadata:
   type: config
-  name: identity_providor
-  description: test the apigateway identity providor
+  name: identity_provider
+  description: test the apigateway identity provider
 
 identity_provider: API_GATEWAY
 
