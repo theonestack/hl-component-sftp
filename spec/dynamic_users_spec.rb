@@ -641,7 +641,7 @@ describe 'compiled component sftp' do
       end
       
       it "to have property Environment" do
-          expect(resource["Properties"]["Environment"]).to eq({"Variables"=>{"ENVIRONMENT_NAME"=>{"Ref"=>"EnvironmentName"}, "USER_CREATED_SNS_TOPIC"=>{"Ref"=>"DynamicSftpUserCreatedTopic"}}})
+          expect(resource["Properties"]["Environment"]).to eq({"Variables"=>{"ENVIRONMENT_NAME"=>{"Ref"=>"EnvironmentName"}, "MESSAGE_S3_PATH"=>{"Ref"=>"S3Message"}, "USER_CREATED_SNS_TOPIC"=>{"Ref"=>"DynamicSftpUserCreatedTopic"}}})
       end
       
       it "to have property Handler" do
