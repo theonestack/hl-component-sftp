@@ -519,7 +519,14 @@ CloudFormation do
 
     user_policy = { Version: "2012-10-17", Statement: [] }
 
-    if user.has_key?('home') && user['home'] != '/'
+    if user.has_key?('home') && user['home'] == '/'
+      user_policy[:Statement] << {
+        Sid: "AllowListingOfUserFolder",
+        Action: [ "s3:ListBucket" ],
+        Effect: "Allow",
+        Resource: [ "arn:aws:s3:::${!transfer:HomeBucket}" ]
+      }
+    else
       user_policy[:Statement] << {
         Sid: "AllowListingOfUserFolder",
         Action: [ "s3:ListBucket" ],
@@ -533,13 +540,6 @@ CloudFormation do
             ]
           }
         }
-      }
-    elsif user.has_key?('home') && user['home'] == '/'
-      user_policy[:Statement] << {
-        Sid: "AllowListingOfUserFolder",
-        Action: [ "s3:ListBucket" ],
-        Effect: "Allow",
-        Resource: [ "arn:aws:s3:::${!transfer:HomeBucket}" ]
       }
   end
 
