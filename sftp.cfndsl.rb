@@ -519,20 +519,29 @@ CloudFormation do
 
     user_policy = { Version: "2012-10-17", Statement: [] }
 
-    user_policy[:Statement] << {
-      Sid: "AllowListingOfUserFolder",
-      Action: [ "s3:ListBucket" ],
-      Effect: "Allow",
-      Resource: [ "arn:aws:s3:::${!transfer:HomeBucket}" ],
-      Condition: {
-        StringLike: {
-          "s3:prefix" => [
-            "${!transfer:HomeFolder}/*",
-            "${!transfer:HomeFolder}"
-          ]
+    if user.has_key?('home') && user['home'] == '/'
+      user_policy[:Statement] << {
+        Sid: "AllowListingOfUserFolder",
+        Action: [ "s3:ListBucket" ],
+        Effect: "Allow",
+        Resource: [ "arn:aws:s3:::${!transfer:HomeBucket}" ]
+      }
+    else
+      user_policy[:Statement] << {
+        Sid: "AllowListingOfUserFolder",
+        Action: [ "s3:ListBucket" ],
+        Effect: "Allow",
+        Resource: [ "arn:aws:s3:::${!transfer:HomeBucket}" ],
+        Condition: {
+          StringLike: {
+            "s3:prefix" => [
+              "${!transfer:HomeFolder}/*",
+              "${!transfer:HomeFolder}"
+            ]
+          }
         }
       }
-    }
+  end
 
     user_policy[:Statement] << {
       Sid: "AWSTransferRequirements",
