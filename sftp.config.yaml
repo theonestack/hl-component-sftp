@@ -7,6 +7,10 @@ identity_provider: service_managed
 # PUBLIC | VPC_ENDPOINT | VPC
 endpoint: public
 
+# The storage that SFTP will point to and interact with 
+# S3 | EFS
+domain: S3
+
 # when endpoint type is set to VPC you can opt to make 
 # the transfer server public by attaching Elastic IPs.
 vpc_public: false
@@ -166,3 +170,28 @@ dynamic_users_create_and_cleanup:
       environment:
         ENVIRONMENT_NAME:
           Ref: EnvironmentName
+
+sftp_custom_resources:
+  custom_policies:
+    efs:
+      action:
+        - elasticfilesystem:*
+      resource: '*'
+    lambda:
+      action:
+        - lambda:InvokeFunction
+      resource: '*'
+  roles:
+    FilesystemPolicyCreatorResourceRole:
+      policies_inline:
+        - cloudwatch-logs
+        - efs
+        - lambda
+  functions:
+    FilesystemPolicyCreatorCR:
+      code: efs_filesystem_policy_creator_cr/index.py
+      handler: index.handler
+      runtime: python3.9
+      timeout: 120
+      log_retention: 90
+      role: FilesystemPolicyCreatorResourceRole
