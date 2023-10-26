@@ -49,7 +49,7 @@ apigateway_identity_provider:
       named: true
       code: identity_provider/index.py
       handler: index.handler
-      runtime: python3.7
+      runtime: python3.8
       timeout: 30
       role: SftpIdentityProvider
       log_retention: 90
@@ -80,7 +80,7 @@ output_vpc_endpoint_ips_custom_resource:
       log_retention: 14
       code: vpc_endpoint_ips/index.py
       handler: index.handler
-      runtime: python3.7
+      runtime: python3.8
       timeout: 60
       role: GetVpcEndpointIPs
 
