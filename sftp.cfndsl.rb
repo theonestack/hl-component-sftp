@@ -280,7 +280,7 @@ CloudFormation do
 
     EC2_SecurityGroup(:SftpSecurityGroup) {
       VpcId Ref(:VpcId)
-      GroupDescription FnSub("Controll sftp access to the #{server_name}-${EnvironmentName} aws transfer server vpc endpoint")
+      GroupDescription FnSub("Control sftp access to the #{server_name}-${EnvironmentName} aws transfer server vpc endpoint")
       SecurityGroupIngress ingress if ingress.any?
       Tags sg_tags
       Metadata({
@@ -318,11 +318,11 @@ CloudFormation do
     if apigateway_endpoint.upcase == 'VPC_ENDPOINT' and identity_provider.upcase == 'API_GATEWAY'
 
       api_sg_tags = default_tags.map(&:clone)
-      api_sg_tags << { Key: "Name", Value: FnSub("${EnvironmentName}-api-gateway-sftp-identidy-provider") }
+      api_sg_tags << { Key: "Name", Value: FnSub("${EnvironmentName}-api-gateway-sftp-identity-provider") }
 
       EC2_SecurityGroup(:ApiGatewaySecurityGroup) {
         VpcId Ref(:VpcId)
-        GroupDescription FnSub("Controll https access to the ${EnvironmentName} api gateway sftp identity provider vpc endpoint")
+        GroupDescription FnSub("Control https access to the ${EnvironmentName} api gateway sftp identity provider vpc endpoint")
         SecurityGroupIngress [{
           SourceSecurityGroupId: Ref(:SftpSecurityGroup),
           Description: "SFTP VPC Endpoint Security Group Id",
@@ -440,6 +440,7 @@ CloudFormation do
     Condition(:TransferServerEnabled)
 
     EndpointType endpoint.upcase
+    Domain domain.upcase
 
     if endpoint.upcase == 'VPC_ENDPOINT'
       EndpointDetails({
@@ -474,6 +475,21 @@ CloudFormation do
     Tags sftp_tags
   }
 
+  # Due to circular dependencies and other issues the EFS FileSystem policy is being created in the SFTP stack using a custom resource lambda function called efs_filesystem_policy_creator_cr
+  filesystem_policy = { Version: "2012-10-17", Statement: [] }
+  filesystem_policy[:Statement] << {
+    Sid: "DefaultGrantTransferRoleAccess",
+    Principal: {
+      "AWS": "*"
+    },
+    Action: [
+      "elasticfilesystem:ClientWrite",
+      "elasticfilesystem:ClientMount",
+      "elasticfilesystem:ClientRootAccess"
+    ],
+    Effect: "Allow"
+  }
+
   users = external_parameters.fetch(:users, [])
   users.each do |user|
 
@@ -484,125 +500,262 @@ CloudFormation do
     user_tags = default_tags.map(&:clone)
     user_tags << { Key: "Name", Value: "#{user['name']}" }
 
-    IAM_Role("#{user['name']}SftpAccessRole") {
-      AssumeRolePolicyDocument service_role_assume_policy('transfer')
-      Path '/'
-      Policies ([
-        PolicyName: "sftp-access-for-#{user['name']}",
-        PolicyDocument: {
-          Statement: [
-            {
-              Sid: "AllowListingOfUserFolder",
-              Effect: "Allow",
-              Action: [
-                "s3:ListBucket",
-                "s3:GetBucketLocation"
-              ],
-              Resource: FnSub("arn:aws:s3:::#{user['bucket']}")
-            },
-            {
-              Sid: "HomeDirObjectAccess",
-              Effect: "Allow",
-              Action: [
-                  "s3:PutObject",
-                  "s3:GetObject",
-                  "s3:DeleteObjectVersion",
-                  "s3:DeleteObject",
-                  "s3:GetObjectVersion"
-              ],
-              Resource: FnSub("arn:aws:s3:::#{user['bucket']}/*")
+    if domain.upcase == 'EFS'
+      if user.has_key? 'access' and user['access'].include? 'root'
+        IAM_Role("#{user['name']}SftpAccessRole") {
+          AssumeRolePolicyDocument service_role_assume_policy('transfer')
+          Path '/'
+          Policies ([
+            PolicyName: "sftp-write-access-for-#{user['name']}",
+            PolicyDocument: {
+              Statement: [
+                {
+                  Sid: "AllowWriteAccessToFileSystem",
+                  Effect: "Allow",
+                  Action: [
+                    "elasticfilesystem:ClientWrite",
+                    "elasticfilesystem:ClientMount"
+                  ],
+                  Resource: FnSub("arn:aws:elasticfilesystem:::#{user['filesystem']}")
+                }
+              ]
             }
-          ]
+          ])
         }
-      ])
-    }
-
-    user_policy = { Version: "2012-10-17", Statement: [] }
-
-    if user.has_key?('home') && user['home'] == '/'
-      user_policy[:Statement] << {
-        Sid: "AllowListingOfUserFolder",
-        Action: [ "s3:ListBucket" ],
-        Effect: "Allow",
-        Resource: [ "arn:aws:s3:::${!transfer:HomeBucket}" ]
-      }
-    else
-      user_policy[:Statement] << {
-        Sid: "AllowListingOfUserFolder",
-        Action: [ "s3:ListBucket" ],
-        Effect: "Allow",
-        Resource: [ "arn:aws:s3:::${!transfer:HomeBucket}" ],
-        Condition: {
-          StringLike: {
-            "s3:prefix" => [
-              "${!transfer:HomeFolder}/*",
-              "${!transfer:HomeFolder}"
+        Output("#{user['name']}SftpAccessRole") {
+          Value Ref("#{user['name']}SftpAccessRole")
+          Export FnSub("${EnvironmentName}-#{external_parameters[:component_name]}-#{user['name']}SftpAccessRole")
+        }
+        Output("#{user['name']}SftpAccessRoleArn") {
+          Value FnGetAtt("#{user['name']}SftpAccessRole", :Arn)
+          Export FnSub("${EnvironmentName}-#{external_parameters[:component_name]}-#{user['name']}SftpAccessRoleArn")
+        }
+        filesystem_policy[:Statement] << {
+          Sid: "#{user['name']}SFTPRootGrantTransferRoleAccess",
+          Principal: {
+            "AWS": FnGetAtt("#{user['name']}SftpAccessRole", :Arn)
+          },
+          Action: [
+            "elasticfilesystem:ClientWrite",
+            "elasticfilesystem:ClientMount",
+            "elasticfilesystem:ClientRootAccess"
+          ],
+          Effect: "Allow"
+        }
+      elsif user.has_key? 'access' and user['access'].include? 'write'
+        IAM_Role("#{user['name']}SftpAccessRole") {
+          AssumeRolePolicyDocument service_role_assume_policy('transfer')
+          Path '/'
+          Policies ([
+            PolicyName: "sftp-write-access-for-#{user['name']}",
+            PolicyDocument: {
+              Statement: [
+                {
+                  Sid: "AllowWriteAccessToFileSystem",
+                  Effect: "Allow",
+                  Action: [
+                    "elasticfilesystem:ClientWrite",
+                    "elasticfilesystem:ClientMount"
+                  ],
+                  Resource: FnSub("arn:aws:elasticfilesystem:::#{user['filesystem']}")
+                }
+              ]
+            }
+          ])
+        }
+        Output("#{user['name']}SftpAccessRole") {
+          Value Ref("#{user['name']}SftpAccessRole")
+          Export FnSub("${EnvironmentName}-#{external_parameters[:component_name]}-#{user['name']}SftpAccessRole")
+        }
+        Output("#{user['name']}SftpAccessRoleArn") {
+          Value FnGetAtt("#{user['name']}SftpAccessRole", :Arn)
+          Export FnSub("${EnvironmentName}-#{external_parameters[:component_name]}-#{user['name']}SftpAccessRoleArn")
+        }
+        filesystem_policy[:Statement] << {
+          Sid: "#{user['name']}SFTPReadWriteGrantTransferRoleAccess",
+          Principal: {
+            "AWS": FnGetAtt("#{user['name']}SftpAccessRole", :Arn)
+          },
+          Action: [
+            "elasticfilesystem:ClientWrite",
+            "elasticfilesystem:ClientMount"
+          ],
+          Effect: "Allow"
+        }
+      elsif user.has_key? 'access' and user['access'].include? 'read'
+        IAM_Role("#{user['name']}SftpAccessRole") {
+          AssumeRolePolicyDocument service_role_assume_policy('transfer')
+          Path '/'
+          Policies ([
+            PolicyName: "sftp-read-access-for-#{user['name']}",
+            PolicyDocument: {
+              Statement: [
+                {
+                  Sid: "AllowReadAccessToFileSystem",
+                  Effect: "Allow",
+                  Action: [
+                    "elasticfilesystem:ClientMount"
+                  ],
+                  Resource: FnSub("arn:aws:elasticfilesystem:::#{user['filesystem']}")
+                }
+              ]
+            }
+          ])
+        }
+        Output("#{user['name']}SftpAccessRole") {
+          Value Ref("#{user['name']}SftpAccessRole")
+          Export FnSub("${EnvironmentName}-#{external_parameters[:component_name]}-#{user['name']}SftpAccessRole")
+        }
+        Output("#{user['name']}SftpAccessRoleArn") {
+          Value FnGetAtt("#{user['name']}SftpAccessRole", :Arn)
+          Export FnSub("${EnvironmentName}-#{external_parameters[:component_name]}-#{user['name']}SftpAccessRoleArn")
+        }
+        filesystem_policy[:Statement] << {
+          Sid: "#{user['name']}SFTPReadGrantTransferRoleAccess",
+          Principal: {
+            "AWS": FnGetAtt("#{user['name']}SftpAccessRole", :Arn)
+          },
+          Action: [
+            "elasticfilesystem:ClientMount"
+          ],
+          Effect: "Allow"
+        }
+      end
+    elsif domain.upcase == 'S3'
+      IAM_Role("#{user['name']}SftpAccessRole") {
+        AssumeRolePolicyDocument service_role_assume_policy('transfer')
+        Path '/'
+        Policies ([
+          PolicyName: "sftp-access-for-#{user['name']}",
+          PolicyDocument: {
+            Statement: [
+              {
+                Sid: "AllowListingOfUserFolder",
+                Effect: "Allow",
+                Action: [
+                  "s3:ListBucket",
+                  "s3:GetBucketLocation"
+                ],
+                Resource: FnSub("arn:aws:s3:::#{user['bucket']}")
+              },
+              {
+                Sid: "HomeDirObjectAccess",
+                Effect: "Allow",
+                Action: [
+                    "s3:PutObject",
+                    "s3:GetObject",
+                    "s3:DeleteObjectVersion",
+                    "s3:DeleteObject",
+                    "s3:GetObjectVersion"
+                ],
+                Resource: FnSub("arn:aws:s3:::#{user['bucket']}/*")
+              }
             ]
           }
+        ])
+      }
+      Output("#{user['name']}SftpAccessRole") {
+        Value Ref("#{user['name']}SftpAccessRole")
+        Export FnSub("${EnvironmentName}-#{external_parameters[:component_name]}-#{user['name']}SftpAccessRole")
+      }
+      Output("#{user['name']}SftpAccessRoleArn") {
+        Value FnGetAtt("#{user['name']}SftpAccessRole", :Arn)
+        Export FnSub("${EnvironmentName}-#{external_parameters[:component_name]}-#{user['name']}SftpAccessRoleArn")
+      }
+
+      user_policy = { Version: "2012-10-17", Statement: [] }
+
+      if user.has_key?('home') && user['home'] == '/'
+        user_policy[:Statement] << {
+          Sid: "AllowListingOfUserFolder",
+          Action: [ "s3:ListBucket" ],
+          Effect: "Allow",
+          Resource: [ "arn:aws:s3:::${!transfer:HomeBucket}" ]
         }
-      }
-  end
+      else
+        user_policy[:Statement] << {
+          Sid: "AllowListingOfUserFolder",
+          Action: [ "s3:ListBucket" ],
+          Effect: "Allow",
+          Resource: [ "arn:aws:s3:::${!transfer:HomeBucket}" ],
+          Condition: {
+            StringLike: {
+              "s3:prefix" => [
+                "${!transfer:HomeFolder}/*",
+                "${!transfer:HomeFolder}"
+              ]
+            }
+          }
+        }
+      end    
 
-    user_policy[:Statement] << {
-      Sid: "AWSTransferRequirements",
-      Effect: "Allow",
-      Action: [
-        "s3:ListAllMyBuckets",
-        "s3:GetBucketLocation"
-      ],
-      Resource: "*"
-    }
-
-    user_policy[:Statement] << {
-      Sid: "HomeDirObjectGetAccess",
-      Effect: "Allow",
-      Action: [
-        "s3:GetObject",
-        "s3:GetObjectVersion",
-        "s3:GetObjectACL"
-      ],
-      Resource: "arn:aws:s3:::${!transfer:HomeDirectory}*"
-    }
-
-    if user.has_key? 'access' and user['access'].include? 'put'
       user_policy[:Statement] << {
-        Sid: "HomeDirObjectPutAccess",
+        Sid: "AWSTransferRequirements",
         Effect: "Allow",
         Action: [
-          "s3:PutObject",
-          "s3:PutObjectACL"
+          "s3:ListAllMyBuckets",
+          "s3:GetBucketLocation"
+        ],
+        Resource: "*"
+      }
+
+      user_policy[:Statement] << {
+        Sid: "HomeDirObjectGetAccess",
+        Effect: "Allow",
+        Action: [
+          "s3:GetObject",
+          "s3:GetObjectVersion",
+          "s3:GetObjectACL"
         ],
         Resource: "arn:aws:s3:::${!transfer:HomeDirectory}*"
       }
-    end
 
-    if user.has_key? 'access' and user['access'].include? 'delete'
-      user_policy[:Statement] << {
-        Sid: "HomeDirObjectDeleteAccess",
-        Effect: "Allow",
-        Action: [
-          "s3:DeleteObjectVersion",
-          "s3:DeleteObject"
-        ],
-        Resource: "arn:aws:s3:::${!transfer:HomeDirectory}*"
-      }
-    end
+      if user.has_key? 'access' and user['access'].include? 'put'
+        user_policy[:Statement] << {
+          Sid: "HomeDirObjectPutAccess",
+          Effect: "Allow",
+          Action: [
+            "s3:PutObject",
+            "s3:PutObjectACL"
+          ],
+          Resource: "arn:aws:s3:::${!transfer:HomeDirectory}*"
+        }
+      end
 
-    unless user.has_key? 'access' and user['access'].include? 'mkdir'
-      user_policy[:Statement] << {
-        Sid: "HomeDirObjectDenyMkdirAccess",
-        Effect: "Deny",
-        Action: [
-          "s3:PutObject"
-        ],
-        Resource: "arn:aws:s3:::${!transfer:HomeBucket}/*/"
-      }
+      if user.has_key? 'access' and user['access'].include? 'delete'
+        user_policy[:Statement] << {
+          Sid: "HomeDirObjectDeleteAccess",
+          Effect: "Allow",
+          Action: [
+            "s3:DeleteObjectVersion",
+            "s3:DeleteObject"
+          ],
+          Resource: "arn:aws:s3:::${!transfer:HomeDirectory}*"
+        }
+      end
+
+      unless user.has_key? 'access' and user['access'].include? 'mkdir'
+        user_policy[:Statement] << {
+          Sid: "HomeDirObjectDenyMkdirAccess",
+          Effect: "Deny",
+          Action: [
+            "s3:PutObject"
+          ],
+          Resource: "arn:aws:s3:::${!transfer:HomeBucket}/*/"
+        }
+      end
     end
 
     if identity_provider.upcase == 'API_GATEWAY'
 
       secret_string = { Role: "${Role}" }
-      secret_string[:HomeDirectory] = user.has_key?('home') ? "/#{user['bucket']}#{user['home']}" : "/#{user['bucket']}/home/#{user['name']}"
+      
+      if user.has_key? 'bucket' && domain.upcase == 'S3'
+        secret_string[:HomeDirectory] = user.has_key?('home') ? "/#{user['bucket']}#{user['home']}" : "/#{user['bucket']}/home/#{user['name']}"
+      else
+        secret_string[:HomeDirectory] = user.has_key?('home') ? "/#{user['filesystem']}#{user['home']}" : "/#{user['filesystem']}/home/#{user['name']}"
+      end
+      
       secret_string[:Policy] = user_policy.to_json
 
       if user.has_key? 'keys' and user['keys'].any?
@@ -611,30 +764,66 @@ CloudFormation do
 
       SecretsManager_Secret("#{user['name']}SftpUserSecret") {
         Name FnSub("sftp/${EnvironmentName}/#{user['name']}")
-        Description FnSub("${EnvironmentName} sftp user deatils for #{user['name']}")
+        Description FnSub("${EnvironmentName} sftp user details for #{user['name']}")
         SecretString FnSub(secret_string.to_json, { Role: FnGetAtt("#{user['name']}SftpAccessRole", :Arn) })
       }
 
     else
-
-      home_directory = user.has_key?('home') ? "/#{user['bucket']}#{user['home']}" : "/#{user['bucket']}/home/#{user['name']}"
+      if user.has_key? 'bucket' && domain.upcase == 'S3'
+        home_directory = user.has_key?('home') ? "/#{user['bucket']}#{user['home']}" : "/#{user['bucket']}/home/#{user['name']}"
+      else
+        home_directory = user.has_key?('home') ? "/#{user['filesystem']}#{user['home']}" : "/#{user['filesystem']}/home/#{user['name']}"
+      end
 
       Transfer_User("#{user['name']}SftpUser") {
         Condition(:TransferServerEnabled)
-        HomeDirectory FnSub(home_directory)
         UserName user['name']
         ServerId FnGetAtt(:SftpServer, :ServerId)
         Role FnGetAtt("#{user['name']}SftpAccessRole", :Arn)
-        Policy FnSub(user_policy.to_json)
+        
+        if user.has_key? 'home_directory_type' and user['home_directory_type'].upcase == 'LOGICAL' and user.has_key? 'home_directory_mappings' and user['home_directory_mappings'].any?
+          HomeDirectoryType 'LOGICAL'
+          home_mappings = []
+          user['home_directory_mappings'].each do |map|
+            mapping = {}
+            mapping[:Entry] = map['entry']
+            mapping[:Target] = FnSub(map['target'])
+            home_mappings.push(mapping)
+          end
+          HomeDirectoryMappings home_mappings
+        else
+          HomeDirectoryType 'PATH'
+          HomeDirectory FnSub(home_directory)
+        end
 
+        if domain.upcase == 'S3'
+          Policy FnSub(user_policy.to_json)
+        end
+        
         if user.has_key? 'keys' and user['keys'].any?
           SshPublicKeys user['keys']
         end
-
+        
+        if user.has_key? 'posix'
+          posix_profile = {}
+          posix_profile[:Gid] = user['posix']['Gid'] if user['posix'].has_key?('Gid')
+          posix_profile[:Uid] = user['posix']['Uid'] if user['posix'].has_key?('Uid')
+          PosixProfile posix_profile
+        end
+        
         Tags user_tags
       }
     end
+  end
 
+  if domain.upcase == 'EFS'
+    Resource("FileSystemPolicyCreatorFunction") do
+      Type 'AWS::CloudFormation::CustomResource'
+      Property 'ServiceToken', FnGetAtt('FilesystemPolicyCreatorCR','Arn')
+      Property 'FunctionName', Ref('FilesystemPolicyCreatorCR')
+      Property 'Policy', filesystem_policy
+      Property 'FileSystemId', Ref('FileSystemId')
+    end
   end
 
   Route53_RecordSet(:SftpServerRecord) {
@@ -663,5 +852,4 @@ CloudFormation do
       )
     )
   }
-
 end
